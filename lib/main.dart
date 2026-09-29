@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:painting_sprite/screens/color_screen.dart';
 import 'package:painting_sprite/screens/draw_screen.dart';
 import 'package:painting_sprite/screens/magic_screen.dart';
+import 'package:painting_sprite/services/ai_service.dart';
 import 'package:painting_sprite/services/speech_service.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
@@ -36,6 +37,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _speech = FakeSpeechService(); // W3：换系统/云端 TTS 实现
+  final _ai = MockAiService(); // W3：换真实 API 实现（读 ai_keys.json）
 
   void _goDraw() {
     Navigator.of(context).push(
@@ -51,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ColorScreen(
+          ai: _ai,
           onDone: (png) => _toMagic(png),
         ),
       ),
@@ -107,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _BigEntry(
                   emoji: '✨',
                   bg: const Color(0xFFFFAB91),
-                  onTap: _goColor, // W2 起指向"线稿工坊"快捷入口
+                  onTap: _goColor, // 线稿涂色入口（语音线稿 + 内置库）
                 ),
               ],
             ),
