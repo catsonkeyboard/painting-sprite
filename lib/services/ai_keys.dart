@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
-/// AI 配置：从项目根 `ai_keys.json` 读取（已 gitignore）。
+/// AI 配置：优先读 assets/ai_keys.json（Android/iOS 打包进 App），
+/// 桌面端回退到可执行文件旁 / 工作目录的 ai_keys.json。
 ///
 /// 无此文件或字段缺失 → 对应能力自动降级 Mock，App 照常可玩。
-/// 密钥纪律：绝不提交仓库、绝不上架此包。
+/// 密钥纪律：ai_keys.json 已 gitignore，绝不提交仓库。
 class AiKeys {
   const AiKeys({
     this.doubaoApiKey,
@@ -39,8 +41,15 @@ class AiKeys {
   bool get hasLlm => zhipuApiKey != null;
   bool get hasVideo => klingAccessKey != null && klingSecretKey != null;
 
-  /// 从可执行文件旁或工作目录读 ai_keys.json。
+  /// 加载顺序：assets → 工作目录 → 可执行文件旁。
   static Future<AiKeys> load() async {
+    // 1. assets（移动端：密钥文件放进 assets/ 后打包）
+    try {
+      final s = await rootBundle.loadString('assets/ai_keys.json');
+      return _fromJson(s);
+    } catch (_) {/* assets 无密钥文件，继续 */}
+
+    // 2. 桌面端：工作目录 / 可执行文件旁
     try {
       for (final base in [
         Directory.current.path,
@@ -48,17 +57,26 @@ class AiKeys {
       ]) {
         final f = File('$base/ai_keys.json');
         if (!await f.exists()) continue;
-        final json = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-        return AiKeys(
-          doubaoApiKey: json['doubao_api_key'] as String?,
-          zhipuApiKey: json['zhipu_api_key'] as String?,
-          klingAccessKey: json['kling_access_key'] as String?,
-          klingSecretKey: json['kling_secret_key'] as String?,
-        );
+        return _fromJson(await f.readAsString());
       }
     } catch (e) {
       debugPrint('ai_keys.json 读取失败，全部降级 Mock：$e');
     }
     return const AiKeys();
+  }
+
+  static AiKeys _fromJson(String raw) {
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    return AiKeys(
+      doubaoApiKey: json['doubao_api_key'] as String?,
+      doubaoBaseUrl: (json['doubao_base_url'] as String?) ??
+          'https://ark.cn-beijing.volces.com/api/v3',
+      doubaoAsrModel: (json['doubao_asr_model'] as String?) ?? 'doubao-speech-to-text',
+      doubaoImageModel: (json['doubao_image_model'] as String?) ?? 'doubao-seedream-5-0-pro',
+      zhipuApiKey: json['zhipu_api_key'] as String?,
+      klingAccessKey: json['kling_access_key'] as String?,
+      klingSecretKey: json['kling_secret_key'] as String?,
+      klingVideoModel: (json['kling_video_model'] as String?) ?? 'kling-v2-6',
+    );
   }
 }

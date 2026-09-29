@@ -1,0 +1,10 @@
+{
+  "_comment": "复制本文件为 assets/ai_keys.json（或项目根 ai_keys.json）并填入真实密钥。此模板可安全提交。",
+  "doubao_api_key": "",
+  "zhipu_api_key": "",
+  "kling_access_key": "",
+  "kling_secret_key": "",
+  "doubao_asr_model": "doubao-speech-to-text",
+  "doubao_image_model": "doubao-seedream-5-0-pro",
+  "kling_video_model": "kling-v2-6"
+}

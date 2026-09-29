@@ -1,3 +1,7 @@
 .workbuddy/
 *.log
 .DS_Store
+
+# AI 密钥（永不提交）
+ai_keys.json
+assets/ai_keys.json

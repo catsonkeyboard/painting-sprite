@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 语音许愿：录音（children 权限组外的运行时权限，record 插件自动请求） -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- AI 直连 + 视频播放 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- 平板不旋转布局（儿童 App 常见做法：锁横屏，见 activity screenOrientation） -->
     <application
         android:label="涂鸦精灵"
         android:name="${applicationName}"
@@ -8,6 +14,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
+            android:screenOrientation="userLandscape"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

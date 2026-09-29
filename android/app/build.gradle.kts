@@ -19,6 +19,7 @@ android {
         applicationId = "com.daming.painting_sprite"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // record(录音) 插件要求 minSdk 23+（比 Flutter 默认高）
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
