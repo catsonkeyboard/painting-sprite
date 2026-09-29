@@ -14,8 +14,8 @@ abstract class AiService {
   /// 愿望理解：文本 → (愿望类型, 英文视频提示词)。
   Future<({String wish, String videoPrompt})> interpretWish(String text);
 
-  /// 图生视频：作品图 + 提示词 → 5 秒动画 MP4。
-  Future<Uint8List> animateDrawing({
+  /// 图生视频：作品图 + 提示词 → 动画视频 URL（UI 层播放）。
+  Future<Uri> animateDrawing({
     required Uint8List imageBytes,
     required String videoPrompt,
   });
@@ -56,13 +56,14 @@ class MockAiService implements AiService {
   }
 
   @override
-  Future<Uint8List> animateDrawing({
+  Future<Uri> animateDrawing({
     required Uint8List imageBytes,
     required String videoPrompt,
   }) async {
     callCount++;
-    await Future<void>.delayed(const Duration(seconds: 2));
-    return imageBytes; // Mock：返回原图占位（W3 换真视频）
+    // Mock：2.5 秒"施法"后返回动态占位（GIF 式数据 URI 由 UI 兜底本地动画）
+    await Future<void>.delayed(const Duration(milliseconds: 2500));
+    throw UnimplementedError('__mock_video_degraded__');
   }
 }
 

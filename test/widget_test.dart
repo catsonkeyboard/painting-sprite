@@ -39,10 +39,11 @@ void main() {
     );
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    // 魔法屏出现 4 个愿望按钮
+    // 魔法屏出现愿望按钮（4 个愿望 emoji）
     expect(find.text('🕺'), findsOneWidget);
     expect(find.text('🕊️'), findsOneWidget);
-    expect(find.text('🎤'), findsOneWidget);
     expect(find.text('🏃'), findsOneWidget);
+    // 麦克风按钮存在（至少 1 个）
+    expect(find.text('🎤'), findsWidgets);
   });
 }

@@ -6,7 +6,8 @@ import 'package:painting_sprite/screens/color_screen.dart';
 import 'package:painting_sprite/screens/draw_screen.dart';
 import 'package:painting_sprite/screens/magic_screen.dart';
 import 'package:painting_sprite/services/ai_service.dart';
-import 'package:painting_sprite/services/speech_service.dart';
+import 'package:painting_sprite/services/fallback_ai_service.dart';
+import 'package:painting_sprite/services/system_speech_service.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
 void main() {
@@ -36,8 +37,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _speech = FakeSpeechService(); // W3：换系统/云端 TTS 实现
-  final _ai = MockAiService(); // W3：换真实 API 实现（读 ai_keys.json）
+  // W3：真 TTS + 真假自动切换的 AI 网关（无 ai_keys.json 时全自动 Mock）
+  final _speech = SystemSpeechService();
+  AiService? _ai;
+
+  @override
+  void initState() {
+    super.initState();
+    FallbackAiService.create().then((ai) {
+      if (mounted) setState(() => _ai = ai);
+    });
+  }
+
+  AiService get ai => _ai ?? MockAiService();
 
   void _goDraw() {
     Navigator.of(context).push(
@@ -53,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ColorScreen(
-          ai: _ai,
+          ai: ai,
           onDone: (png) => _toMagic(png),
         ),
       ),
@@ -65,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => MagicScreen(
           pngBytes: bytes,
+          ai: ai,
           speech: _speech,
         ),
       ),

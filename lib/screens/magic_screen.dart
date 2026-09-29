@@ -1,123 +1,238 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 import 'package:painting_sprite/magic/magic_show.dart';
+import 'package:painting_sprite/services/ai_service.dart';
+import 'package:painting_sprite/services/artwork_store.dart';
+import 'package:painting_sprite/services/hold_to_talk.dart';
 import 'package:painting_sprite/services/speech_service.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
-/// 屏 ③：魔法屏 —— 许愿变动画。
+/// 屏 ③：魔法屏 —— 许愿变 5 秒动画（W3 全链路版）。
 ///
-/// W1 范围：作品预览（本地动画扭起来）+ 4 个预设愿望大按钮 + TTS 演出。
-/// W3 接入：语音许愿（ASR→LLM→可灵视频）+ 全链路降级。
+/// 链路：按住说话 → ASR → LLM(愿望+提示词) → 可灵视频（异步 30s~3min）
+/// 等待期：本地动画扭起来 + 粒子 + TTS 讲故事（魔法演出）
+/// 降级：视频失败 → 本地动画兜底；没听清 → 预设愿望大按钮。
 class MagicScreen extends StatefulWidget {
-  const MagicScreen({super.key, required this.pngBytes, required this.speech});
+  const MagicScreen({
+    super.key,
+    required this.pngBytes,
+    required this.ai,
+    required this.speech,
+  });
 
   final Uint8List pngBytes;
+  final AiService ai;
   final SpeechService speech;
 
   @override
   State<MagicScreen> createState() => _MagicScreenState();
 }
 
-enum _MagicPhase { idle, casting, done, fallback }
+enum _Phase { idle, listening, casting, videoReady, fallback }
 
 class _MagicScreenState extends State<MagicScreen> {
-  _MagicPhase _phase = _MagicPhase.idle;
+  _Phase _phase = _Phase.idle;
   WishType _wish = WishType.dance;
 
-  Future<void> _cast(WishType wish) async {
-    if (_phase == _MagicPhase.casting) return;
-    setState(() {
-      _wish = wish;
-      _phase = _MagicPhase.casting;
-    });
-    await widget.speech.speak(MagicPhrases.casting);
-    // W3：这里接入云端视频链路（ASR→LLM→可灵图生视频）。
-    // W1：本地动画演出就是魔法本身——2.5 秒"施法"后完成。
-    await Future<void>.delayed(const Duration(milliseconds: 2500));
-    if (!mounted) return;
-    setState(() => _phase = _MagicPhase.done);
-    await widget.speech.speak(MagicPhrases.done);
+  final HoldToTalk _talk = HoldToTalk();
+  VideoPlayerController? _video;
+
+  @override
+  void dispose() {
+    _video?.dispose();
+    super.dispose();
   }
+
+  Future<void> _onMicReleased() async {
+    final audio = await _talk.stop();
+    if (audio == null) {
+      // 太短 = 误触
+      await widget.speech.speak(MagicPhrases.tryAgain);
+      if (mounted) setState(() => _phase = _Phase.idle);
+      return;
+    }
+    await _castWithAudio(audio);
+  }
+
+  Future<void> _castWithAudio(Uint8List audio) async {
+    setState(() => _phase = _Phase.casting);
+    try {
+      final text = await widget.ai.transcribe(audio);
+      if (text.trim().isEmpty) throw Exception('empty');
+      await _startMagicShow(text);
+    } catch (_) {
+      await widget.speech.speak(MagicPhrases.tryAgain);
+      if (mounted) setState(() => _phase = _Phase.idle);
+    }
+  }
+
+  /// 预设按钮直通车。
+  Future<void> _castPreset(WishType w) async {
+    if (_phase == _Phase.casting || _phase == _Phase.listening) return;
+    setState(() {
+      _wish = w;
+      _phase = _Phase.casting;
+    });
+    await _startMagicShow('让它${w.label}');
+  }
+
+  Future<void> _startMagicShow(String wishText) async {
+    unawaited(widget.speech.speak(MagicPhrases.casting));
+
+    String videoPrompt = 'a cute doodle character dancing happily, '
+        'playful children animation style';
+    try {
+      final r = await widget.ai.interpretWish(wishText);
+      videoPrompt = r.videoPrompt;
+      _wish = _wishFromLabel(r.wish);
+    } catch (_) {/* LLM 失败用默认提示词 */}
+
+    try {
+      final videoUrl = await widget.ai.animateDrawing(
+        imageBytes: widget.pngBytes,
+        videoPrompt: videoPrompt,
+      );
+      final ctrl = VideoPlayerController.networkUrl(videoUrl);
+      await ctrl.initialize();
+      await ctrl.setLooping(true);
+      if (!mounted) return;
+      setState(() {
+        _video = ctrl;
+        _phase = _Phase.videoReady;
+      });
+      unawaited(ctrl.play());
+      unawaited(widget.speech.speak(MagicPhrases.done));
+      unawaited(ArtworkStore.save(pngBytes: widget.pngBytes, wish: wishText));
+    } catch (_) {
+      // 四级降级：本地动画兜底
+      if (!mounted) return;
+      setState(() => _phase = _Phase.fallback);
+      unawaited(widget.speech.speak(MagicPhrases.fallback));
+      unawaited(ArtworkStore.save(pngBytes: widget.pngBytes, wish: wishText));
+    }
+  }
+
+  WishType _wishFromLabel(String s) => switch (s) {
+        'fly' => WishType.fly,
+        'sing' => WishType.sing,
+        'run' => WishType.run,
+        _ => WishType.dance,
+      };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // 施法氛围粒子
-          if (_phase == _MagicPhase.casting) const MagicParticles(count: 28),
+          if (_phase == _Phase.casting) const MagicParticles(count: 28),
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Center(
-                    child: MagicShow(
-                      wish: _wish,
-                      autoPlay: _phase != _MagicPhase.idle,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            if (_phase != _MagicPhase.idle)
-                              BoxShadow(
-                                color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
-                                blurRadius: 40,
-                                spreadRadius: 8,
-                              ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Image.memory(
-                            widget.pngBytes,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Text(
-                  switch (_phase) {
-                    _MagicPhase.idle => '✨ ${_wish.emoji} ${_wish.label} ✨',
-                    _MagicPhase.casting => '🌀 ${MagicPhrases.casting}',
-                    _MagicPhase.done => '🎉 ${MagicPhrases.done}',
-                    _MagicPhase.fallback => '💫 ${MagicPhrases.fallback}',
-                  },
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF5D4037),
-                  ),
-                ),
+                Expanded(child: Center(child: _buildStage())),
+                _buildStatus(),
                 const SizedBox(height: 12),
-                // 4 个预设愿望大按钮（语音按钮 W3 接麦克风后加入）
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      for (final w in WishType.values)
-                        KidUi.bigButton(
-                          size: KidUi.minTouch + 8,
-                          color: _wish == w && _phase != _MagicPhase.idle
-                              ? const Color(0xFF7C4DFF)
-                              : Colors.white,
-                          onTap: () => _cast(w),
-                          child: Text(w.emoji, style: const TextStyle(fontSize: 34)),
-                        ),
-                    ],
-                  ),
-                ),
+                _buildWishRow(),
+                const SizedBox(height: 12),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStage() {
+    if (_phase == _Phase.videoReady && _video != null) {
+      return AspectRatio(
+        aspectRatio: _video!.value.aspectRatio,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: VideoPlayer(_video!),
+        ),
+      );
+    }
+    return MagicShow(
+      wish: _wish,
+      autoPlay: _phase != _Phase.idle,
+      child: _glowWrap(
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Image.memory(widget.pngBytes, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+
+  Widget _glowWrap(Widget child) => Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            if (_phase != _Phase.idle)
+              BoxShadow(
+                color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
+                blurRadius: 40,
+                spreadRadius: 8,
+              ),
+          ],
+        ),
+        child: child,
+      );
+
+  Widget _buildStatus() {
+    final text = switch (_phase) {
+      _Phase.idle => '按住 🎤 许愿，或点下面的魔法按钮',
+      _Phase.listening => '👂 小精灵在听…',
+      _Phase.casting => '🌀 小精灵正在施魔法，咕噜咕噜变！',
+      _Phase.videoReady => '🎉 它活过来啦！',
+      _Phase.fallback => '💫 ${MagicPhrases.fallback}',
+    };
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF5D4037),
+      ),
+    );
+  }
+
+  Widget _buildWishRow() {
+    final busy = _phase == _Phase.casting || _phase == _Phase.listening;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // 按住说话大麦克风
+        GestureDetector(
+          onLongPressStart: (_) async {
+            if (busy) return;
+            setState(() => _phase = _Phase.listening);
+            await _talk.start();
+          },
+          onLongPressEnd: (_) => _onMicReleased(),
+          child: KidUi.bigButton(
+            size: KidUi.minTouch + 16,
+            color: _phase == _Phase.listening
+                ? const Color(0xFFFF7043)
+                : const Color(0xFF81D4FA),
+            onTap: () {},
+            child: const Text('🎤', style: TextStyle(fontSize: 40)),
+          ),
+        ),
+        for (final w in WishType.values)
+          KidUi.bigButton(
+            size: KidUi.minTouch + 8,
+            color: _wish == w && _phase != _Phase.idle
+                ? const Color(0xFF7C4DFF)
+                : Colors.white,
+            onTap: busy ? () {} : () => _castPreset(w),
+            child: Text(w.emoji, style: const TextStyle(fontSize: 34)),
+          ),
+      ],
     );
   }
 }
