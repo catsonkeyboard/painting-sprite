@@ -35,7 +35,7 @@ class RealAiService {
       body: jsonEncode({
         'model': keys.doubaoAsrModel,
         'audio': base64Encode(audioBytes),
-        'format': 'wav',
+        'format': 'm4a', // 与 HoldToTalk 的 aacLc/.m4a 保持一致
       }),
     ).timeout(const Duration(seconds: 30));
     _throwIfNotOk(resp, 'ASR');
