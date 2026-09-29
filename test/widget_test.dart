@@ -33,10 +33,15 @@ void main() {
     await tester.dragFrom(center, const Offset(60, 40));
     await tester.pumpAndSettle();
 
-    // 点完成（魔法棒按钮）→ PNG 编码是真实异步，需 runAsync 放行真实时间
+    // 点完成（魔法棒按钮）→ PNG 编码 + TTS 播报是真实异步，runAsync 放行真实时间
     await tester.tap(find.byIcon(Icons.auto_awesome));
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      () => Future<void>.delayed(const Duration(milliseconds: 800)),
+    );
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+    // 再放行一轮（speak 完成后 onDone 才触发导航）
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
     );
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
@@ -46,5 +51,24 @@ void main() {
     expect(find.text('🏃'), findsOneWidget);
     // 麦克风按钮存在（至少 1 个）
     expect(find.text('🎤'), findsWidgets);
+  });
+
+  testWidgets('涂色屏：线稿库网格渲染 + 点选进入涂色', (WidgetTester tester) async {
+    await tester.pumpWidget(const PaintingSpriteApp());
+    await tester.tap(find.text('🎨'));
+    await tester.pumpAndSettle();
+
+    // 麦克风 + 8 张内置线稿缩略图（Image.asset）
+    expect(find.text('🎤'), findsOneWidget);
+    expect(find.byType(Image), findsWidgets);
+
+    // 点第一张线稿 → 进入涂色模式（图像解码是真实异步，放行真实时间）
+    await tester.tap(find.byType(Image).first);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.undo), findsOneWidget);
+    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
   });
 }

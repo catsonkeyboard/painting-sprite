@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:painting_sprite/painting/canvas_controller.dart';
 import 'package:painting_sprite/painting/doodle_canvas.dart';
 import 'package:painting_sprite/painting/pen_config.dart';
+import 'package:painting_sprite/services/speech_service.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
 /// 屏 ①：自由涂鸦 —— 大画笔大色盘，圆肌肉友好。
 class DrawScreen extends StatefulWidget {
-  const DrawScreen({super.key, required this.onDone});
+  const DrawScreen({super.key, required this.speech, required this.onDone});
+
+  final SpeechService speech;
 
   /// 作品 PNG 字节交给魔法屏。
   final void Function(Uint8List png) onDone;
@@ -26,6 +29,12 @@ class _DrawScreenState extends State<DrawScreen> {
   final _canvasKey = GlobalKey<DoodleCanvasState>();
 
   double _brush = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.speech.speak(MagicPhrases.goDraw); // 进入引导
+  }
 
   void _setBrush(double w) {
     _brush = w;
@@ -45,6 +54,7 @@ class _DrawScreenState extends State<DrawScreen> {
   Future<void> _finish() async {
     if (_controller.isBlank) return;
     final png = await _canvasKey.currentState!.exportPngBytes();
+    await widget.speech.speak(MagicPhrases.toMagic);
     widget.onDone(png);
   }
 

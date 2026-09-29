@@ -9,6 +9,7 @@ import 'package:painting_sprite/screens/magic_screen.dart';
 import 'package:painting_sprite/screens/settings_screen.dart';
 import 'package:painting_sprite/services/ai_service.dart';
 import 'package:painting_sprite/services/fallback_ai_service.dart';
+import 'package:painting_sprite/services/speech_service.dart';
 import 'package:painting_sprite/services/system_speech_service.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _speech.speak(MagicPhrases.welcome); // 启动欢迎语
     FallbackAiService.create().then((ai) {
       if (mounted) setState(() => _ai = ai);
     });
@@ -57,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DrawScreen(
+          speech: _speech,
           onDone: (png) => _toMagic(png),
         ),
       ),
@@ -68,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => ColorScreen(
           ai: ai,
+          speech: _speech,
           onDone: (png) => _toMagic(png),
         ),
       ),
