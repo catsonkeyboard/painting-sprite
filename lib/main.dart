@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'package:painting_sprite/screens/color_screen.dart';
 import 'package:painting_sprite/screens/draw_screen.dart';
+import 'package:painting_sprite/screens/gallery_screen.dart';
 import 'package:painting_sprite/screens/magic_screen.dart';
+import 'package:painting_sprite/screens/settings_screen.dart';
 import 'package:painting_sprite/services/ai_service.dart';
 import 'package:painting_sprite/services/fallback_ai_service.dart';
 import 'package:painting_sprite/services/system_speech_service.dart';
@@ -72,6 +74,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _goGallery() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const GalleryScreen()),
+    );
+  }
+
+  void _goSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
+
   void _toMagic(Uint8List bytes) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -121,9 +135,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: _goColor,
                 ),
                 _BigEntry(
-                  emoji: '✨',
+                  emoji: '🖼️',
                   bg: const Color(0xFFFFAB91),
-                  onTap: _goColor, // 线稿涂色入口（语音线稿 + 内置库）
+                  onTap: _goGallery,
+                ),
+                _BigEntry(
+                  emoji: '⚙️',
+                  bg: const Color(0xFFCEDBD2),
+                  onTap: _goSettings,
                 ),
               ],
             ),

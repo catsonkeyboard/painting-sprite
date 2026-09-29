@@ -186,3 +186,109 @@ class _ParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(_ParticlePainter oldDelegate) => true;
 }
+
+/// 一次性撒花庆祝：视频生成成功时炸一屏彩纸（2.4 秒，自动淡出）。
+class ConfettiBurst extends StatefulWidget {
+  const ConfettiBurst({super.key, this.pieceCount = 80});
+
+  final int pieceCount;
+
+  @override
+  State<ConfettiBurst> createState() => _ConfettiBurstState();
+}
+
+class _ConfettiBurstState extends State<ConfettiBurst>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2400),
+  )..forward();
+
+  late final List<_ConfettiPiece> _pieces = List.generate(
+    widget.pieceCount,
+    (i) => _ConfettiPiece.random(i),
+  );
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) => CustomPaint(
+          painter: _ConfettiPainter(_pieces, _ctrl.value),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfettiPiece {
+  _ConfettiPiece(this.x0, this.vx, this.vy, this.hue, this.w, this.h, this.spin);
+
+  factory _ConfettiPiece.random(int seed) {
+    final r = math.Random(seed * 7919);
+    return _ConfettiPiece(
+      0.3 + r.nextDouble() * 0.4, // 顶部中间喷出
+      (r.nextDouble() - 0.5) * 0.9, // 水平速度
+      0.25 + r.nextDouble() * 0.5, // 垂直落速
+      r.nextDouble() * 360,
+      6 + r.nextDouble() * 8,
+      10 + r.nextDouble() * 10,
+      r.nextDouble() * 2 * math.pi, // 初始旋转
+    );
+  }
+
+  final double x0;
+  final double vx;
+  final double vy;
+  final double hue;
+  final double w;
+  final double h;
+  final double spin;
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.pieces, this.t);
+
+  final List<_ConfettiPiece> pieces;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fade = t < 0.75 ? 1.0 : (1 - (t - 0.75) / 0.25); // 尾段淡出
+    for (final p in pieces) {
+      // 抛物线：x = x0 + vx*t, y = vy*t + 0.5*g*t²（归一化坐标）
+      final x = (p.x0 + p.vx * t) * size.width;
+      final y = (p.vy * t + 0.9 * t * t) * size.height;
+      final angle = p.spin + t * 9;
+      final rect = Rect.fromCenter(
+        center: Offset(x, y),
+        width: p.w,
+        height: p.h * (0.4 + 0.6 * (0.5 + 0.5 * math.sin(angle * 2))), // 翻转闪动感
+      );
+      final paint = Paint()
+        ..color = HSLColor.fromAHSL(fade, p.hue, 0.85, 0.6).toColor();
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(angle);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rect.shift(-Offset(x, y)),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter oldDelegate) => true;
+}

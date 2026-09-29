@@ -9,6 +9,7 @@ import 'package:painting_sprite/services/ai_service.dart';
 import 'package:painting_sprite/services/artwork_store.dart';
 import 'package:painting_sprite/services/hold_to_talk.dart';
 import 'package:painting_sprite/services/speech_service.dart';
+import 'package:painting_sprite/services/wish_quota.dart';
 import 'package:painting_sprite/ui/kid_ui.dart';
 
 /// 屏 ③：魔法屏 —— 许愿变 5 秒动画（W3 全链路版）。
@@ -37,6 +38,7 @@ enum _Phase { idle, listening, casting, videoReady, fallback }
 class _MagicScreenState extends State<MagicScreen> {
   _Phase _phase = _Phase.idle;
   WishType _wish = WishType.dance;
+  bool _confetti = false;
 
   final HoldToTalk _talk = HoldToTalk();
   VideoPlayerController? _video;
@@ -91,6 +93,15 @@ class _MagicScreenState extends State<MagicScreen> {
       _wish = _wishFromLabel(r.wish);
     } catch (_) {/* LLM 失败用默认提示词 */}
 
+    // 家长限流：配额不足 → 直接本地动画（不发起云端任务，不扣钱）
+    if (!await WishQuota.spend()) {
+      if (!mounted) return;
+      setState(() => _phase = _Phase.fallback);
+      unawaited(widget.speech.speak('今天的云朵魔法用完啦，小精灵给你变本地的！'));
+      unawaited(ArtworkStore.save(pngBytes: widget.pngBytes, wish: wishText));
+      return;
+    }
+
     try {
       final videoUrl = await widget.ai.animateDrawing(
         imageBytes: widget.pngBytes,
@@ -99,16 +110,23 @@ class _MagicScreenState extends State<MagicScreen> {
       final ctrl = VideoPlayerController.networkUrl(videoUrl);
       await ctrl.initialize();
       await ctrl.setLooping(true);
+      // spend 已扣的配额成功消费，不退还
       if (!mounted) return;
       setState(() {
         _video = ctrl;
         _phase = _Phase.videoReady;
+        _confetti = true;
       });
       unawaited(ctrl.play());
       unawaited(widget.speech.speak(MagicPhrases.done));
-      unawaited(ArtworkStore.save(pngBytes: widget.pngBytes, wish: wishText));
+      unawaited(ArtworkStore.save(
+        pngBytes: widget.pngBytes,
+        wish: wishText,
+        videoUrl: videoUrl.toString(),
+      ));
     } catch (_) {
-      // 四级降级：本地动画兜底
+      // 四级降级：本地动画兜底 + 退还配额（孩子没看到视频就不算钱）
+      await WishQuota.refund();
       if (!mounted) return;
       setState(() => _phase = _Phase.fallback);
       unawaited(widget.speech.speak(MagicPhrases.fallback));
@@ -129,6 +147,7 @@ class _MagicScreenState extends State<MagicScreen> {
       body: Stack(
         children: [
           if (_phase == _Phase.casting) const MagicParticles(count: 28),
+          if (_confetti) const ConfettiBurst(),
           SafeArea(
             child: Column(
               children: [

@@ -4,14 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:painting_sprite/main.dart';
 
 void main() {
-  testWidgets('首页三入口渲染 + 导航到画画屏', (WidgetTester tester) async {
+  testWidgets('首页四入口渲染 + 导航到画画屏', (WidgetTester tester) async {
     await tester.pumpWidget(const PaintingSpriteApp());
 
-    // 首页标题与三个大入口
+    // 首页标题与四个大入口：画画/涂色/相册/设置
     expect(find.text('🖌️ 涂鸦精灵'), findsOneWidget);
     expect(find.text('🖌️'), findsOneWidget);
     expect(find.text('🎨'), findsOneWidget);
-    expect(find.text('✨'), findsOneWidget);
+    expect(find.text('🖼️'), findsOneWidget);
+    expect(find.text('⚙️'), findsOneWidget);
 
     // 进入画画屏
     await tester.tap(find.text('🖌️'));
