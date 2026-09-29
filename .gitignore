@@ -7,3 +7,4 @@ ai_keys.json
 assets/ai_keys.json
 build/
 .ephemeral/
+.dart_tool/
