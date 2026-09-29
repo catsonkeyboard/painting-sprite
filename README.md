@@ -19,7 +19,9 @@
 ```bash
 # 本机 Flutter 在 ~/development/flutter（不在 PATH）
 flutter run                       # 连接的设备中选择（Android 平板优先）
-flutter build apk --release --split-per-abi  # release 分架构 APK
+
+# 只编 arm64 release 包（本项目目标平台：Android arm 平板）
+flutter build apk --release --target-platform android-arm64 --split-per-abi
 adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 ```
 
