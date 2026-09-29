@@ -42,19 +42,20 @@ class RealAiService {
     return jsonDecode(resp.body)['text'] as String? ?? '';
   }
 
-  // ---------------- GLM-4-Flash（免费档）----------------
+  // ---------------- OpenAI 兼容 LLM（GLM/DeepSeek/Qwen/Ollama…）----------------
 
   /// 愿望理解：一次调用完成 分类 + 中译英 + 视频提示词。
   Future<({String wish, String videoPrompt})> interpretWish(String text) async {
     if (!keys.hasLlm) throw ApiKeyMissingError('LLM');
+    final base = keys.llmBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final resp = await _client.post(
-      Uri.parse('${keys.zhipuBaseUrl}/chat/completions'),
+      Uri.parse('$base/chat/completions'),
       headers: {
-        'Authorization': 'Bearer ${keys.zhipuApiKey}',
+        'Authorization': 'Bearer ${keys.llmApiKey}',
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'model': 'glm-4-flash',
+        'model': keys.llmModel,
         'messages': [
           {
             'role': 'system',

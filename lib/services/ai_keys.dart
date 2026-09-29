@@ -15,8 +15,9 @@ class AiKeys {
     this.doubaoBaseUrl = 'https://ark.cn-beijing.volces.com/api/v3',
     this.doubaoAsrModel = 'doubao-speech-to-text',
     this.doubaoImageModel = 'doubao-seedream-5-0-pro',
-    this.zhipuApiKey,
-    this.zhipuBaseUrl = 'https://open.bigmodel.cn/api/paas/v4',
+    this.llmApiKey,
+    this.llmBaseUrl = 'https://open.bigmodel.cn/api/paas/v4',
+    this.llmModel = 'glm-4-flash',
     this.klingAccessKey,
     this.klingSecretKey,
     this.klingBaseUrl = 'https://api.klingai.com',
@@ -28,8 +29,12 @@ class AiKeys {
   final String doubaoAsrModel;
   final String doubaoImageModel;
 
-  final String? zhipuApiKey;
-  final String zhipuBaseUrl;
+  /// 任意 OpenAI 兼容的 chat completions 服务
+  /// （GLM / DeepSeek / Qwen / 本地 Ollama / vLLM 均可）。
+  /// base_url 填到 /v1 或等价前缀，代码自动拼接 /chat/completions。
+  final String? llmApiKey;
+  final String llmBaseUrl;
+  final String llmModel;
 
   final String? klingAccessKey;
   final String? klingSecretKey;
@@ -38,7 +43,7 @@ class AiKeys {
 
   bool get hasAsr => doubaoApiKey != null;
   bool get hasImage => doubaoApiKey != null;
-  bool get hasLlm => zhipuApiKey != null;
+  bool get hasLlm => llmApiKey != null && llmApiKey!.isNotEmpty;
   bool get hasVideo => klingAccessKey != null && klingSecretKey != null;
 
   /// 加载顺序：assets → 工作目录 → 可执行文件旁。
@@ -73,7 +78,9 @@ class AiKeys {
           'https://ark.cn-beijing.volces.com/api/v3',
       doubaoAsrModel: (json['doubao_asr_model'] as String?) ?? 'doubao-speech-to-text',
       doubaoImageModel: (json['doubao_image_model'] as String?) ?? 'doubao-seedream-5-0-pro',
-      zhipuApiKey: json['zhipu_api_key'] as String?,
+      llmApiKey: json['llm_api_key'] as String?,
+      llmBaseUrl: (json['llm_base_url'] as String?) ?? 'https://open.bigmodel.cn/api/paas/v4',
+      llmModel: (json['llm_model'] as String?) ?? 'glm-4-flash',
       klingAccessKey: json['kling_access_key'] as String?,
       klingSecretKey: json['kling_secret_key'] as String?,
       klingVideoModel: (json['kling_video_model'] as String?) ?? 'kling-v2-6',
