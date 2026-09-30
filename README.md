@@ -4,7 +4,7 @@
 
 孩子自由涂鸦（或在语音生成的线稿上涂色），按住麦克风说出愿望——"让它跳起舞来！"——涂鸦就变成一段 5 秒的动画。全程零文字 UI，语音引导贯穿始终；断网、没配密钥也照常可玩（本地魔法动画兜底）。
 
-> 家庭项目 · Flutter 单码库 · 主力平台：Android 平板（arm64）
+> 个人项目 · Flutter 单码库 · 主力平台：Android 平板（arm64）
 > 设计文档：[docs/plans/2026-09-29-painting-sprite-design.md](docs/plans/2026-09-29-painting-sprite-design.md)
 
 ## ✨ 功能全景
@@ -111,4 +111,4 @@ lib/
 
 ## 📄 License
 
-家庭私用项目，未附开源许可证。
+[MIT](LICENSE) © 2026 catsonkeyboard
