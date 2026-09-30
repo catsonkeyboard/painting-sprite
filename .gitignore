@@ -1,10 +1,38 @@
+# --- WorkBuddy / 编辑器 ---
 .workbuddy/
 *.log
 .DS_Store
+*.iml
+.idea/
 
-# AI 密钥（永不提交）
+# --- AI 密钥（永不提交）---
 ai_keys.json
 assets/ai_keys.json
+
+# --- Flutter / Dart 构建产物 ---
 build/
-.ephemeral/
 .dart_tool/
+.ephemeral/
+.flutter-plugins
+.flutter-plugins-dependencies
+generated_plugin_registrant.dart
+
+# --- Android / Gradle ---
+android/local.properties
+android/.gradle/
+*.jks
+*.keystore
+
+# --- iOS / macOS ---
+ios/Pods/
+macos/Pods/
+**/Flutter/ephemeral/
+**/xcuserdata/
+*.xcuserstate
+ios/Flutter/.last_build_id
+
+# --- Windows ---
+windows/flutter/ephemeral/
+
+# --- 测试 / 覆盖率 ---
+coverage/
