@@ -36,3 +36,5 @@ windows/flutter/ephemeral/
 
 # --- 测试 / 覆盖率 ---
 coverage/
+macos/Flutter/GeneratedPluginRegistrant.swift
+ios/Flutter/GeneratedPluginRegistrant.m
