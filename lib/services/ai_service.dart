@@ -1,24 +1,51 @@
 import 'dart:typed_data';
 
+import 'package:painting_sprite/magic/wish_action.dart';
+
 /// AI 服务抽象：W2/W3 的所有云端能力挂在下面，实现可插拔
 /// （Mock 用于开发测试；正式实现读 ai_keys.json 直连厂商 API）。
 ///
 /// 密钥纪律：ai_keys.json 已 gitignore，绝不提交仓库。
 abstract class AiService {
   /// 语音识别：音频 → 文本（孩子说"我要小恐龙"）。
+  /// 失败返回空串（而非伪造文本），让 UI 走"再说一遍"兜底。
   Future<String> transcribe(Uint8List audioBytes);
 
   /// 线稿生成：文本 → 线稿 PNG（生成 2 张供孩子二选一）。
+  /// 失败抛异常，UI 捕获后落内置线稿库。
   Future<List<Uint8List>> generateLineArt(String subject);
 
   /// 愿望理解：文本 → (愿望类型, 英文视频提示词)。
   Future<({String wish, String videoPrompt})> interpretWish(String text);
 
+  /// 画作分析：PNG → (主体, 4 个推荐动作)。
+  /// 返回 null = 失败/不支持（UI 落默认按钮；不造假数据）。
+  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes);
+
   /// 图生视频：作品图 + 提示词 → 动画视频 URL（UI 层播放）。
+  /// [isCancelled] 轮询期间定期检查，返回 true 时抛 [AnimationCancelled]。
   Future<Uri> animateDrawing({
     required Uint8List imageBytes,
     required String videoPrompt,
+    bool Function()? isCancelled,
   });
+
+  /// 尽力下载视频字节（相册本地保存用，避免云端 URL 过期）。
+  /// 失败返回 null（不抛异常），调用方回退 URL 在线播放。
+  Future<Uint8List?> downloadVideoOrNull(Uri url);
+}
+
+/// 用户取消等待（退出页面 / 发起新许愿）：轮询中止。
+class AnimationCancelled implements Exception {
+  @override
+  String toString() => '动画等待已取消';
+}
+
+/// Mock 视频故意降级：UI 捕获后走本地动画兜底
+/// （类型安全，替代魔法字符串异常）。
+class MockVideoDegraded implements Exception {
+  @override
+  String toString() => '__mock_video_degraded__';
 }
 
 /// 开发/测试 Mock：全链路可跑，零 API 花费。
@@ -39,7 +66,8 @@ class MockAiService implements AiService {
   Future<List<Uint8List>> generateLineArt(String subject) async {
     callCount++;
     await Future<void>.delayed(const Duration(milliseconds: 1200));
-    // 占位线稿：纯白 PNG（W2 后续替换为内置线稿库匹配/真实 API）
+    // 占位线稿：纯白 PNG（仅纯 Mock 模式可达；真链路配置后由
+    // FallbackAiService 保证失败透传，不会把白图交给孩子）
     final white = Uint8List.fromList(_tinyWhitePng);
     return [white, white];
   }
@@ -59,11 +87,26 @@ class MockAiService implements AiService {
   Future<Uri> animateDrawing({
     required Uint8List imageBytes,
     required String videoPrompt,
+    bool Function()? isCancelled,
   }) async {
     callCount++;
-    // Mock：2.5 秒"施法"后返回动态占位（GIF 式数据 URI 由 UI 兜底本地动画）
+    // Mock：2.5 秒"施法"后降级本地动画（GIF 式数据 URI 由 UI 兜底）
     await Future<void>.delayed(const Duration(milliseconds: 2500));
-    throw UnimplementedError('__mock_video_degraded__');
+    if (isCancelled?.call() ?? false) throw AnimationCancelled();
+    throw MockVideoDegraded();
+  }
+
+  @override
+  Future<Uint8List?> downloadVideoOrNull(Uri url) async => null;
+
+  @override
+  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes) async {
+    callCount++;
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return ArtworkAnalysis(
+      subject: '小精灵',
+      actions: ArtworkAnalysis.defaultActions,
+    );
   }
 }
 
