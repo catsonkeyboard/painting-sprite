@@ -25,11 +25,15 @@ class MagicScreen extends StatefulWidget {
     required this.pngBytes,
     required this.ai,
     required this.speech,
+    this.knownSubject,
   });
 
   final Uint8List pngBytes;
   final AiService ai;
   final SpeechService speech;
+
+  /// 已知画作主体（内置线稿标签）：命中预制动作集时跳过 LLM 看图分析。
+  final String? knownSubject;
 
   @override
   State<MagicScreen> createState() => _MagicScreenState();
@@ -57,7 +61,19 @@ class _MagicScreenState extends State<MagicScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(_analyzeArtwork());
+    // 内置线稿主体已知：直接用预制动作集（零延迟零成本），
+    // 只有自由涂鸦/云端生成才走 LLM 看图分析。
+    final preset = widget.knownSubject == null
+        ? null
+        : ArtworkAnalysis.presetFor(widget.knownSubject!);
+    if (preset != null) {
+      _analysis = preset;
+      _analyzing = false;
+      debugPrint('[画作分析] 内置线稿命中预制集：${preset.subject}');
+      unawaited(widget.speech.speak('哇，我看到了${preset.subject}！选一个魔法吧！'));
+    } else {
+      unawaited(_analyzeArtwork());
+    }
   }
 
   List<WishAction> get _actions =>

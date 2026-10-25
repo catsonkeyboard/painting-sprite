@@ -30,6 +30,23 @@ void main() {
     expect(labels, ['跳舞', '飞起来', '唱歌', '奔跑']);
   });
 
+  test('内置线稿 8 个主体全部有预制动作集，且每个恰好 4 个合法动作', () {
+    const libraryLabels = ['恐龙', '小猫', '兔子', '独角兽', '火箭', '金鱼', '蝴蝶', '房子'];
+    for (final label in libraryLabels) {
+      final p = ArtworkAnalysis.presetFor(label);
+      expect(p, isNotNull, reason: '$label 应有预制动作集');
+      expect(p!.subject, label);
+      expect(p.actions.length, 4);
+      for (final a in p.actions) {
+        expect(a.label, isNotEmpty);
+        expect(a.emoji, isNotEmpty);
+        expect(a.emoji.contains('🎤'), isFalse);
+        expect(a.prompt, isNotEmpty);
+      }
+    }
+    expect(ArtworkAnalysis.presetFor('挖掘机'), isNull, reason: '未预制主体返回 null');
+  });
+
   group('MockAiService.analyzeArtwork', () {
     test('返回通用默认动作集（离线可玩）', () async {
       final mock = MockAiService();
