@@ -84,10 +84,17 @@ class FallbackAiService implements AiService {
   }
 
   @override
-  Future<({String wish, String videoPrompt})> interpretWish(String text) async {
-    if (!_realConfigured || _sticky) return mock.interpretWish(text);
+  Future<({String wish, String videoPrompt})> interpretWish(String text,
+          {String? subject}) =>
+      _interpretWish(text, subject);
+
+  Future<({String wish, String videoPrompt})> _interpretWish(
+      String text, String? subject) async {
+    if (!_realConfigured || _sticky) {
+      return mock.interpretWish(text, subject: subject);
+    }
     try {
-      final r = await real.interpretWish(text);
+      final r = await real.interpretWish(text, subject: subject);
       _onRealSuccess();
       return r;
     } catch (e) {
@@ -122,9 +129,19 @@ class FallbackAiService implements AiService {
     }
   }
 
-  /// 画作分析兜底（Task 4 实现真逻辑；此处先保证接口编译）。
+  /// 画作分析：失败返回 null（UI 落默认按钮），不造假数据。
   @override
-  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes) async => null;
+  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes) async {
+    if (!_realConfigured || _sticky) return null;
+    try {
+      final r = await real.analyzeArtwork(pngBytes);
+      if (r != null) _onRealSuccess();
+      return r;
+    } catch (e) {
+      _onRealFailure('画作分析', e);
+      return null;
+    }
+  }
 
   /// 便捷工厂：读 ai_keys.json，无密钥时纯 Mock。
   static Future<FallbackAiService> create() async {

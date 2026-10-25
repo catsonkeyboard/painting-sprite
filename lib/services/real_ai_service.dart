@@ -102,15 +102,19 @@ class RealAiService {
   ///
   /// 分类白名单与本地动画的 4 种 [WishType] 一一对应，
   /// 避免 LLM 输出无映射的类型被静默当成跳舞。
-  Future<({String wish, String videoPrompt})> interpretWish(String text) async {
+  /// [subject] 为画作主体（画作分析结果），注入提示词让视频以主体为主语。
+  Future<({String wish, String videoPrompt})> interpretWish(String text,
+      {String? subject}) async {
     if (!keys.hasLlm) throw ApiKeyMissingError('LLM');
     final base = keys.llmBaseUrlEffective.replaceAll(RegExp(r'/+$'), '');
+    final subjectHint =
+        subject == null ? '' : '画作主体是「$subject」，视频提示词要以它为主语。';
     final body = <String, dynamic>{
       'model': keys.llmModelEffective,
       'messages': [
         {
           'role': 'system',
-          'content': '你是儿童涂鸦App的愿望精灵。孩子会说一句话描述想让'
+          'content': '$subjectHint你是儿童涂鸦App的愿望精灵。孩子会说一句话描述想让'
               '自己的画做什么。请严格输出JSON：{"wish":"dance|fly|sing|run'
               '|other","video_prompt":"<英文视频提示词，儿童友好、'
               '明快色彩、描述主体动作，不超过60词>"}。不要输出任何其他文字。',

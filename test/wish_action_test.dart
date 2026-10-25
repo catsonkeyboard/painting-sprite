@@ -9,6 +9,7 @@ import 'package:painting_sprite/magic/magic_show.dart';
 import 'package:painting_sprite/magic/wish_action.dart';
 import 'package:painting_sprite/services/ai_keys.dart';
 import 'package:painting_sprite/services/ai_service.dart';
+import 'package:painting_sprite/services/fallback_ai_service.dart';
 import 'package:painting_sprite/services/real_ai_service.dart';
 
 void main() {
@@ -137,6 +138,45 @@ void main() {
       );
       await expectLater(real.analyzeArtwork(Uint8List.fromList([1])),
           throwsA(isA<AiHttpException>()));
+    });
+  });
+
+  group('Fallback / interpretWish subject', () {
+    test('analyzeArtwork 真链路失败 → null（不造假）+ 计数', () async {
+      final real = RealAiService(
+        const AiKeys(
+            doubaoApiKey: 'k', doubaoAsrModel: 'doubao-seed-2-1-lite-260915'),
+        client: MockClient((req) async => http.Response('boom', 500)),
+      );
+      final fb = FallbackAiService(real: real, mock: MockAiService());
+      expect(await fb.analyzeArtwork(Uint8List.fromList([1])), isNull);
+      expect(fb.degradedCount, 1);
+    });
+
+    test('interpretWish 注入主体到请求体', () async {
+      String? body;
+      final real = RealAiService(
+        const AiKeys(
+            doubaoApiKey: 'k', doubaoAsrModel: 'doubao-seed-2-1-lite-260915'),
+        client: MockClient((req) async {
+          body = req.body;
+          return http.Response(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {
+                      'content': '{"wish":"run","video_prompt":"a cat running"}'
+                    }
+                  }
+                ]
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'});
+        }),
+      );
+      final r = await real.interpretWish('快跑', subject: '小猫');
+      expect(r.wish, 'run');
+      expect(body, contains('小猫'));
     });
   });
 }

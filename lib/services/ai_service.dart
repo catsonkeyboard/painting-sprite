@@ -16,7 +16,9 @@ abstract class AiService {
   Future<List<Uint8List>> generateLineArt(String subject);
 
   /// 愿望理解：文本 → (愿望类型, 英文视频提示词)。
-  Future<({String wish, String videoPrompt})> interpretWish(String text);
+  /// [subject] 为画作主体（画作分析结果），注入提示词提升出片贴合度。
+  Future<({String wish, String videoPrompt})> interpretWish(String text,
+      {String? subject});
 
   /// 画作分析：PNG → (主体, 4 个推荐动作)。
   /// 返回 null = 失败/不支持（UI 落默认按钮；不造假数据）。
@@ -73,7 +75,8 @@ class MockAiService implements AiService {
   }
 
   @override
-  Future<({String wish, String videoPrompt})> interpretWish(String text) async {
+  Future<({String wish, String videoPrompt})> interpretWish(String text,
+      {String? subject}) async {
     callCount++;
     await Future<void>.delayed(const Duration(milliseconds: 400));
     return (
