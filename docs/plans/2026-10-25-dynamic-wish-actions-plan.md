@@ -1,5 +1,7 @@
 # 动态施法（看图推荐愿望动作）实施计划
 
+> **执行状态（2026-10-25）：6/6 任务完成**，62/62 测试全绿。执行偏差 2 处：Task 2 因抽象方法导致实现类编译问题插入临时 stub（Task 3/4 如期替换）；Task 5 测试环境需 SharedPreferences mock 与合法 PNG 字节（计划评审时已识别）。后续追加：内置线稿预制动作集（见动态施法设计文档状态行）。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 进入魔法屏时用多模态 LLM 识别画作主体并动态生成 4 个贴合的施法动作按钮，点击即施法（零额外 LLM 调用）。

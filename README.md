@@ -34,7 +34,7 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 测试（代理环境下本地 WebSocket 需要 NO_PROXY）：
 
 ```bash
-flutter test        # 60 个用例全绿
+flutter test        # 62 个用例全绿
 flutter analyze     # 零问题
 ```
 
@@ -76,6 +76,7 @@ lib/
 │   └── pen_config.dart            #   画笔配置（颜色/粗细/橡皮）
 ├── coloring/flood_filler.dart     # 泛洪填色引擎（span-scanline + YIQ 亮度保持）
 ├── magic/magic_show.dart          # 本地魔法动画（4 种愿望）+ 粒子 + 撒花
+├── magic/wish_action.dart         # 动态施法模型 + 内置线稿预制动作集（8 主体）
 ├── screens/                       # 四屏 + 相册 + 家长设置
 │   ├── draw_screen.dart           #   ① 画画屏
 │   ├── color_screen.dart          #   ② 涂色屏（线稿库/语音生成/二选一）
@@ -104,14 +105,21 @@ lib/
 | W3 | 语音许愿全链路 + 四级降级 | ✅ |
 | W4 | 撒花 + 相册 + 家长限流 | ✅ |
 | 加餐 | 语音线稿二选一 + TTS 全接线 + arm64 release | ✅ |
-| 待办 | 平板真机联调 + 真密钥校准 | ⬜ |
+| 加餐 2 | 全面代码审查修复（8 个 P0 + 体验/资源/数据安全） | ✅ |
+| 加餐 3 | 家长模型配置页（应用内热生效）+ 单 Key 火山方舟方案 | ✅ |
+| 加餐 4 | 动态施法：内置线稿预制集秒显 + 自由涂鸦 LLM 看图推荐 | ✅ |
+| 加餐 5 | Windows 端适配（视频播放/返回按钮/构建链）+ 全链路验收 | ✅ |
+| 待办 | Android 平板真机联调 | ⬜ |
 
 ## 🐛 已知平台坑
 
 - macOS 构建遇 `sandbox-exec: sandbox_apply: Operation not permitted` → Flutter 3.47 的 SPM 集成问题，`flutter config --no-enable-swift-package-manager` 或按官方指引移除工程 SPM 引用
 - 代理环境跑测试需 `NO_PROXY=localhost,127.0.0.1,::1`（否则本地 WebSocket 被劫持）
+- Windows 构建需 `nuget.exe`（flutter_tts 依赖）：`winget install Microsoft.NuGet` 后重开终端；若报 `file cannot create directory: C:/Program Files/...` 是 CMake 缓存损坏，`flutter clean` 后重建
+- Windows 桌面视频播放依赖 `video_player_win`（官方 video_player 无 Windows 实现，已内置）
 - 代码中 LLM/ASR/视频的模型名以 `ai_keys.example.json` 默认值为准，与控制台开通的模型不一致时在配置中覆盖；其中 ASR 模型名若保持占位值 `doubao-speech-to-text`，会被视为半配置直接走 Mock（日志有警告），填入方舟控制台实际模型/接入点 ID（常见形如 `ep-xxxx`）即启用真链路
 - 首页 Android 返回键为"两次返回退出"（2 秒窗口 + TTS 提示），防孩子误触退出
+- Seedance 视频生成实测约 30s~2min（mini 720p 5s 有声），魔法屏有等待计时显示
 
 ## 📄 License
 
