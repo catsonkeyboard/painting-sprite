@@ -45,6 +45,7 @@ class _MagicScreenState extends State<MagicScreen> {
   /// 看图分析结果：null = 未完成/失败 → 按钮用默认动作集。
   ArtworkAnalysis? _analysis;
   int? _activeActionIndex; // 当前施法动作高亮
+  bool _analyzing = true; // 进屏即分析（成功/失败都结束）
 
   final HoldToTalk _talk = HoldToTalk();
   VideoPlayerController? _video;
@@ -71,10 +72,18 @@ class _MagicScreenState extends State<MagicScreen> {
         return;
       }
       debugPrint(
-          '[画作分析] 主体=${a.subject} 动作=${a.actions.map((x) => x.label).join('/')}');
-      if (mounted) setState(() => _analysis = a);
+          '[画作分析] 主体=${a.subject} 动作=${a.actions.map((x) => '${x.label}${x.emoji}').join('/')}');
+      if (mounted) {
+        setState(() => _analysis = a);
+        // 语音播报让"看懂了"被听见（仅空闲时，不打断施法）
+        if (_phase == _Phase.idle) {
+          unawaited(widget.speech.speak('哇，我看到了$a.subject！选一个魔法吧！'));
+        }
+      }
     } catch (e) {
       debugPrint('[画作分析] 失败，保留默认按钮：$e');
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
     }
   }
 
@@ -389,7 +398,9 @@ class _MagicScreenState extends State<MagicScreen> {
 
   Widget _buildStatus() {
     final text = switch (_phase) {
-      _Phase.idle => '按住 🎤 许愿，或点下面的魔法按钮',
+      _Phase.idle => _analyzing
+          ? '👀 小精灵正在看你的画…'
+          : '按住 🎤 许愿，或点下面的魔法按钮',
       _Phase.listening => '👂 小精灵在听…',
       _Phase.casting => '🌀 ${MagicPhrases.casting}（已等 $_waitSec 秒，最多 180 秒）',
       _Phase.videoReady => '🎉 ${MagicPhrases.done}',
@@ -432,7 +443,21 @@ class _MagicScreenState extends State<MagicScreen> {
                 ? KidUi.magicPurple
                 : Colors.white,
             onTap: busy ? () {} : () => _castAction(a, i),
-            child: Text(a.emoji, style: const TextStyle(fontSize: 34)),
+            // emoji + 中文小标签：动态动作换了能一眼看出来
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(a.emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(height: 2),
+                Text(
+                  a.label,
+                  style: const TextStyle(
+                      fontSize: 11, color: KidUi.textBrown),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
       ],
     );
