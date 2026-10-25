@@ -1,6 +1,6 @@
 import 'dart:async';
 
-/// 语音播报服务：TTS 引导 / 喝彩 / 喝彩 / 魔法故事。
+/// 语音播报服务：TTS 引导 / 喝彩 / 魔法故事。
 ///
 /// W1 用系统 TTS；W3 接云端童声 TTS 时替换实现，接口不变。
 abstract class SpeechService {
@@ -14,7 +14,6 @@ class FakeSpeechService implements SpeechService {
 
   @override
   Future<void> speak(String text) async => spoken.add(text);
-
   @override
   Future<void> stop() async {}
 }
@@ -30,6 +29,20 @@ class MagicPhrases {
   static const done = '哇！它活过来啦！';
   static const fallback = '小精灵的魔法还在路上，它先自己扭一扭！';
   static const tryAgain = '小精灵没听清，再说一遍好不好？';
+  // 画板场景
+  static const drawFirst = '先画一画，再施魔法吧！';
+  static const stayDrawing = '画还没施魔法呢！';
+  // 麦克风场景
+  static const micBlocked = '小精灵的耳朵还没打开，用下面的魔法按钮吧！';
+  static const holdMic = '按住麦克风不放，再说出你的愿望哦！';
+  static const waitMagic = '魔法还在变，再等等它好吗？';
+  static const byeBye = '再按一次返回，和小精灵说再见哦！';
+  // 等待期轮播的小故事（设计 §2.3：TTS 持续陪伴）
+  static const List<String> waitingStories = [
+    '小精灵正在念咒语，咕噜咕噜变！',
+    '魔法云朵正在打包你的动画，再等一小会儿！',
+    '小精灵说：快好啦，快好啦！',
+  ];
   // 线稿生成场景
   static const lineArtAsk = '说出你想画的小伙伴吧！';
   static const lineArtHit = '好的，来啦！'; // + 名字
