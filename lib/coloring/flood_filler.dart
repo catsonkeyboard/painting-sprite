@@ -25,21 +25,36 @@ class FloodFiller {
   int _b(int i) => pixels[i + 2];
 
   /// 与种子点颜色的平方距离是否在容差内。
-  bool _matches(int idx, int sr, int sg, int sb, int tolerance) {
+  ///
+  /// [barrier] 开启时，亮度低于 [_barrierY] 的像素一律不匹配——
+  /// 黑线（含被容差"看穿"的细浅线）成为绝对边界，杜绝漏色到相邻区域。
+  bool _matches(int idx, int sr, int sg, int sb, int tolerance, bool barrier) {
+    if (barrier) {
+      final y =
+          0.299 * _r(idx) + 0.587 * _g(idx) + 0.114 * _b(idx);
+      if (y < _barrierY) return false;
+    }
     final dr = _r(idx) - sr;
     final dg = _g(idx) - sg;
     final db = _b(idx) - sb;
     return dr * dr + dg * dg + db * db <= tolerance * tolerance * 3;
   }
 
+  /// 深色屏障阈值：线稿的线条核心亮度远低于此。
+  static const double _barrierY = 100;
+
   /// 在 (sx, sy) 处以 [color] 填充连通区域（span-scanline 算法）。
   ///
   /// 返回被填充的像素数（0 = 没有可填区域）。
   /// [tolerance] 建议值 32~48：覆盖抗锯齿灰边，不会越线。
+  /// 深色像素（黑线）始终作为绝对屏障，细浅线也不会被容差击穿。
   int fill(int sx, int sy, Color color, {int tolerance = 40}) {
     if (sx < 0 || sy < 0 || sx >= width || sy >= height) return 0;
     final start = (sy * width + sx) * bytesPerPixel;
     final sr = _r(start), sg = _g(start), sb = _b(start);
+    // 种子本身是深色（想给黑线上色）时不启用屏障，否则永远填不动
+    final seedY = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+    final barrier = seedY >= _barrierY;
 
     final nr = (color.r * 255).round();
     final ng = (color.g * 255).round();
@@ -58,7 +73,8 @@ class FloodFiller {
       var left = px;
       while (left > 0 &&
           visited[rowStart + left - 1] == 0 &&
-          _matches((rowStart + left - 1) * bytesPerPixel, sr, sg, sb, tolerance)) {
+          _matches((rowStart + left - 1) * bytesPerPixel, sr, sg, sb,
+              tolerance, barrier)) {
         left--;
       }
 
@@ -68,7 +84,8 @@ class FloodFiller {
       var cx = left;
       while (cx < width) {
         final cp = rowStart + cx;
-        if (visited[cp] == 1 || !_matches(cp * bytesPerPixel, sr, sg, sb, tolerance)) {
+        if (visited[cp] == 1 ||
+            !_matches(cp * bytesPerPixel, sr, sg, sb, tolerance, barrier)) {
           break;
         }
         visited[cp] = 1;
@@ -78,7 +95,8 @@ class FloodFiller {
         // 3. 上下邻行：每段只入队一次
         if (cp >= width) {
           final up = cp - width;
-          final ok = visited[up] == 0 && _matches(up * bytesPerPixel, sr, sg, sb, tolerance);
+          final ok = visited[up] == 0 &&
+              _matches(up * bytesPerPixel, sr, sg, sb, tolerance, barrier);
           if (ok && !spanUp) {
             stack.add(up);
             spanUp = true;
@@ -88,7 +106,8 @@ class FloodFiller {
         }
         if (cp + width < width * height) {
           final dn = cp + width;
-          final ok = visited[dn] == 0 && _matches(dn * bytesPerPixel, sr, sg, sb, tolerance);
+          final ok = visited[dn] == 0 &&
+              _matches(dn * bytesPerPixel, sr, sg, sb, tolerance, barrier);
           if (ok && !spanDown) {
             stack.add(dn);
             spanDown = true;

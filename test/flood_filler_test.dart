@@ -75,4 +75,34 @@ void main() {
     expect(f.fill(-1, 0, _red), 0);
     expect(f.fill(0, 99, _red), 0);
   });
+
+  test('细浅灰线不被容差击穿（漏色回归：灰 210 线 + 容差 40）', () {
+    final px = _lineImage(8, 8);
+    // 模拟细线被抗锯齿"冲淡"成 210 灰——容差 40 时它与白底差 45，应为边界
+    for (var y = 0; y < 8; y++) {
+      for (final x in [3, 4]) {
+        final i = (y * 8 + x) * 4;
+        px[i] = px[i + 1] = px[i + 2] = 210;
+      }
+    }
+    final f = FloodFiller(8, 8, px);
+    final filled = f.fill(0, 0, _red, tolerance: 40);
+    expect(filled, 24, reason: '只填左半边，不许漏到右边');
+    expect(_rOf(px, 5, 4), 255, reason: '右半边必须保持白');
+  });
+
+  test('黑线绝对屏障：大容差 80 也不穿透（除非种子本身是深色）', () {
+    final px = _lineImage(8, 8);
+    final f = FloodFiller(8, 8, px);
+    final filled = f.fill(0, 0, _red, tolerance: 80);
+    expect(filled, 24);
+    expect(_rOf(px, 5, 4), 255);
+
+    // 种子是深色（点在黑线上）：屏障关闭，可以沿黑线网络填充
+    final px2 = _lineImage(8, 8);
+    final f2 = FloodFiller(8, 8, px2);
+    final lineFilled = f2.fill(3, 0, _red, tolerance: 40);
+    expect(lineFilled, greaterThan(0));
+    expect(_rOf(px2, 3, 0), 229);
+  });
 }
