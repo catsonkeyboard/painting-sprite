@@ -13,9 +13,9 @@
 |---|---|
 | 🖌️ 画画屏 | 大画笔（3 档粗细）、10 色大色盘、橡皮、撤销/重做、PNG 导出 |
 | 🎨 涂色屏 | 内置 8 张线稿；按住说话生成线稿（ASR → 命中内置库秒出 / 未命中走云端生成二选一）；泛洪填色（黑线永不被涂掉、容差吃灰边） |
-| ✨ 魔法屏 | 按住许愿（语音）或 4 个预设愿望按钮 → 可灵图生视频（撒花庆祝）；等待期本地魔法演出（涂鸦扭动 + 粒子 + TTS） |
+| ✨ 魔法屏 | 看图动态推荐 4 个施法动作（金鱼→游泳、火箭→升空…）；按住许愿（语音，注入主体上下文）或点推荐按钮 → 方舟 Seedance 图生视频（撒花庆祝）；等待期本地魔法演出（涂鸦扭动 + 粒子 + TTS） |
 | 🖼️ 相册 | 作品缩略图网格、动画播放（本地/URL）、愿望文本持久化、删除 |
-| ⚙️ 家长设置 | 两位数加法门（儿童止步）+ 每日云端许愿限额（失败自动退还） |
+| ⚙️ 家长设置 | 两位数加法门（儿童止步）+ 每日云端许愿限额（失败自动退还）+ 模型/密钥应用内配置（保存即热生效，含真链路状态徽章） |
 | 🛡️ 四级降级 | 录音太短→重说；ASR/LLM 失败→自动降级；视频失败→本地动画兜底；无密钥→全 Mock 模式 |
 
 儿童设计细节：全部触摸目标 ≥64pt、零文字依赖（TTS 语音引导 + emoji 图标）、按钮圆滚滚糖果色。
@@ -34,7 +34,7 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 测试（代理环境下本地 WebSocket 需要 NO_PROXY）：
 
 ```bash
-flutter test        # 12 个用例全绿
+flutter test        # 60 个用例全绿
 flutter analyze     # 零问题
 ```
 
@@ -43,22 +43,25 @@ flutter analyze     # 零问题
 不配置 = Mock 模式，全功能可玩（视频走本地动画兜底）。配置后解锁真链路：
 
 ```bash
-cp ai_keys.example.json assets/ai_keys.json   # Android：打包进 App
+cp ai_keys.example.json assets/ai_keys.json   # Android：打包进 App（pubspec 已声明 assets/）
 # 或放项目根 ai_keys.json                      # 桌面调试
 ```
 
 ```jsonc
 {
-  "doubao_api_key": "…",          // 火山方舟：ASR + Seedream 线稿
-  "llm_api_key": "…",             // 任意 OpenAI 兼容 chat completions
-  "llm_base_url": "https://api.deepseek.com/v1",
-  "llm_model": "deepseek-chat",
-  "kling_access_key": "…",        // 可灵开放平台：图生视频
-  "kling_secret_key": "…"
+  "doubao_api_key": "…",              // 火山方舟一个 Key 通吃：ASR + Seedream 线稿 + Seedance 视频
+  "doubao_asr_model": "doubao-seed-2-1-lite-260915",  // 语音识别走音频理解：支持音频输入的多模态豆包模型
+  "doubao_image_model": "doubao-seedream-5-0-flash-260915",
+  "doubao_video_model": "doubao-seedance-2-0-mini-260615",
+  "llm_api_key": "",                  // 可选：留空自动复用豆包 Key（豆包模型）
+  "llm_base_url": "",                 // 或独立指向任意 OpenAI 兼容服务
+  "llm_model": ""
 }
 ```
 
-LLM 端点完全可插拔：智谱 GLM（免费档）/ DeepSeek / Qwen / 本地 Ollama 均可。密钥文件已 gitignore，绝不入库。
+四个能力一套 Key、一个厂商、一个账单。LLM 端点仍然完全可插拔：`llm_api_key` 留空回落豆包模型；填了则指向智谱 GLM（免费档）/ DeepSeek / Qwen / 本地 Ollama 均可。密钥文件已 gitignore，绝不入库。
+
+也可以不改文件：**App 内「家长设置 → 模型与密钥配置」**可直接编辑全部密钥/模型名/URL（密钥默认隐藏），保存到应用文档目录（`ai_keys_app.json`，优先级最高），无需重新打包即生效；页面顶部有四条链路的真链路/Mock/半配置状态徽章，ASR 模型名保持占位值时会明确提示。
 
 ## 📐 项目结构
 
@@ -81,7 +84,7 @@ lib/
 │   └── settings_screen.dart       #   家长设置（算术门+限额）
 ├── services/                      # 全部可插拔
 │   ├── ai_service.dart            #   AiService 抽象 + MockAiService
-│   ├── real_ai_service.dart       #   豆包ASR/GLM/Seedream/可灵（JWT自签名+轮询）
+│   ├── real_ai_service.dart       #   火山方舟全链路：ASR/Seedream/Seedance（任务轮询）+ OpenAI 兼容 LLM
 │   ├── fallback_ai_service.dart   #   降级网关（真→Mock 自动切换）
 │   ├── ai_keys.dart               #   密钥加载（assets 优先/桌面回退）
 │   ├── speech_service.dart        #   TTS 抽象 + 童趣话术库
@@ -107,7 +110,8 @@ lib/
 
 - macOS 构建遇 `sandbox-exec: sandbox_apply: Operation not permitted` → Flutter 3.47 的 SPM 集成问题，`flutter config --no-enable-swift-package-manager` 或按官方指引移除工程 SPM 引用
 - 代理环境跑测试需 `NO_PROXY=localhost,127.0.0.1,::1`（否则本地 WebSocket 被劫持）
-- 代码中 LLM/ASR/视频的模型名以 `ai_keys.example.json` 默认值为准，与控制台开通的模型不一致时在配置中覆盖
+- 代码中 LLM/ASR/视频的模型名以 `ai_keys.example.json` 默认值为准，与控制台开通的模型不一致时在配置中覆盖；其中 ASR 模型名若保持占位值 `doubao-speech-to-text`，会被视为半配置直接走 Mock（日志有警告），填入方舟控制台实际模型/接入点 ID（常见形如 `ep-xxxx`）即启用真链路
+- 首页 Android 返回键为"两次返回退出"（2 秒窗口 + TTS 提示），防孩子误触退出
 
 ## 📄 License
 
