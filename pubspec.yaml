@@ -41,16 +41,20 @@ dependencies:
   path_provider: ^2.1.6
   crypto: ^3.0.7
   shared_preferences: ^2.5.5
+  video_player_win: ^3.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # widget 测试里 mock 应用文档目录用（模型配置页存取）
+  path_provider_platform_interface: ^2.1.2
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  # rules and activating additional lint rules.
   flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
@@ -66,6 +70,9 @@ flutter:
 
   assets:
     - assets/lineart/
+    # 声明 assets/ 根目录（非递归）：用户按 README 把 ai_keys.json 复制到
+    # assets/ 后会自动打进包；文件不存在时目录声明也不会报构建错误。
+    - assets/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

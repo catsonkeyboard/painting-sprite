@@ -23,8 +23,19 @@ void main() {
     expect(find.byIcon(Icons.undo), findsOneWidget);
   });
 
-  testWidgets('画画屏：画一笔 → 完成 → 进入魔法屏', (WidgetTester tester) async {
+  testWidgets('画画屏左上角 ⬅️ 返回首页（桌面端无系统返回键）', (WidgetTester tester) async {
     await tester.pumpWidget(const PaintingSpriteApp());
+    await tester.tap(find.text('🖌️'));
+    await tester.pumpAndSettle();
+    expect(find.text('🖌️ 涂鸦精灵'), findsNothing, reason: '应已进入画画屏');
+
+    // 空白画布：直接返回
+    await tester.tap(find.text('⬅️'));
+    await tester.pumpAndSettle();
+    expect(find.text('🖌️ 涂鸦精灵'), findsOneWidget, reason: '应回到首页');
+  });
+
+  testWidgets('画画屏：画一笔 → 完成 → 进入魔法屏', (WidgetTester tester) async {    await tester.pumpWidget(const PaintingSpriteApp());
     await tester.tap(find.text('🖌️'));
     await tester.pumpAndSettle();
 
@@ -51,6 +62,33 @@ void main() {
     expect(find.text('🏃'), findsOneWidget);
     // 麦克风按钮存在（至少 1 个）
     expect(find.text('🎤'), findsWidgets);
+  });
+
+  testWidgets('首页两次返回才退出（第一次只提示，不退出）', (WidgetTester tester) async {
+    await tester.pumpWidget(const PaintingSpriteApp());
+
+    // 拦截 SystemNavigator.pop 走的 platform 通道，记录是否真的退出
+    var exitRequested = false;
+    tester.binding.defaultBinaryMessenger.setMockMessageHandler(
+      'flutter/platform',
+      (message) async {
+        exitRequested = true;
+        return null;
+      },
+    );
+
+    // 第一次返回：不退出，仍在首页
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(exitRequested, isFalse, reason: '第一次返回只应播 TTS 提示');
+    expect(find.text('🖌️ 涂鸦精灵'), findsOneWidget);
+
+    // 2 秒窗口内第二次：真正退出
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(exitRequested, isTrue);
+
+    tester.binding.defaultBinaryMessenger.setMockMessageHandler('flutter/platform', null);
   });
 
   testWidgets('涂色屏：线稿库网格渲染 + 点选进入涂色', (WidgetTester tester) async {

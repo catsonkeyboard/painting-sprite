@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:painting_sprite/services/artwork_store.dart';
+import 'package:painting_sprite/ui/kid_ui.dart';
 
 /// 作品相册：缩略图网格 → 详情（播放动画 / 看原图 / 删除）。
 class GalleryScreen extends StatefulWidget {
@@ -32,14 +34,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('🖼️ 我的画作'),
-        backgroundColor: const Color(0xFFFFF8E7),
-        foregroundColor: const Color(0xFF5D4037),
+        backgroundColor: KidUi.bgCream,
+        foregroundColor: KidUi.textBrown,
       ),
       body: _items.isEmpty
           ? const Center(
               child: Text(
                 '还没有画作哦，去画一幅吧！',
-                style: TextStyle(fontSize: 20, color: Color(0xFF8D6E63)),
+                style: TextStyle(fontSize: 20, color: KidUi.textBrownLight),
               ),
             )
           : GridView.count(
@@ -75,19 +77,29 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 网格里只需小图：按显示尺寸解码，避免几十张全分辨率 PNG 挤爆内存
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cellPx = (MediaQuery.sizeOf(context).width / 4 * dpr).round();
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFFFE082), width: 3),
+          border: Border.all(color: KidUi.cardYellow, width: 3),
         ),
         child: Stack(
           children: [
             Padding(
               padding: const EdgeInsets.all(4),
-              child: Image.file(File(art.pngPath), fit: BoxFit.contain),
+              child: Image.file(
+                File(art.pngPath),
+                fit: BoxFit.contain,
+                cacheWidth: cellPx,
+                errorBuilder: (_, _, _) => const Center(
+                  child: Text('🖼️', style: TextStyle(fontSize: 28)),
+                ),
+              ),
             ),
             if (art.hasVideo)
               const Positioned(
@@ -128,7 +140,14 @@ class _DetailScreenState extends State<_DetailScreen> {
         if (mounted) {
           setState(() {});
           ctrl.setLooping(true);
-          ctrl.play();
+          unawaited(ctrl.play());
+        }
+      }).catchError((Object e) {
+        // URL 过期 / 文件损坏：静默回退看原图，不抛未处理异常
+        debugPrint('动画播放失败（可能链接已过期）：$e');
+        if (mounted) {
+          setState(() => _video = null);
+          unawaited(ctrl.dispose());
         }
       });
     }
@@ -136,11 +155,55 @@ class _DetailScreenState extends State<_DetailScreen> {
 
   @override
   void dispose() {
-    _video?.dispose();
+    unawaited(_video?.dispose());
+    _video = null;
     super.dispose();
   }
 
   Future<void> _confirmDelete() async {
+    // 删除不可恢复：先弹大按钮确认，防孩子误删作品
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: KidUi.bgCream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '🗑️ 要把这张画丢掉吗？',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: KidUi.textBrown,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  KidUi.bigButton(
+                    size: KidUi.minTouch,
+                    color: Colors.white,
+                    onTap: () => Navigator.of(ctx).pop(false),
+                    child: const Text('✅', style: TextStyle(fontSize: 30)),
+                  ),
+                  KidUi.bigButton(
+                    size: KidUi.minTouch,
+                    color: const Color(0xFFFFAB91),
+                    onTap: () => Navigator.of(ctx).pop(true),
+                    child: const Text('🗑️', style: TextStyle(fontSize: 30)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (yes != true) return;
     await ArtworkStore.delete(widget.art);
     await widget.onDelete();
     if (mounted) Navigator.of(context).pop();
