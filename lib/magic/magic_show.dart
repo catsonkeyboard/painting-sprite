@@ -3,10 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// 愿望类型（与 4 个预设大按钮对应，也用于语音分类）。
+/// emoji 不能和"按住说话"的 🎤 麦克风撞车（零文字 UI，孩子靠图标区分）。
 enum WishType {
   dance('跳舞', '🕺'),
   fly('飞起来', '🕊️'),
-  sing('唱歌', '🎤'),
+  sing('唱歌', '🎵'),
   run('奔跑', '🏃');
 
   const WishType(this.label, this.emoji);
@@ -48,7 +49,15 @@ class _MagicShowState extends State<MagicShow> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(MagicShow old) {
     super.didUpdateWidget(old);
-    if (old.wish != widget.wish) _controller.repeat();
+    // autoPlay false→true 必须启动动画：魔法屏初始愿望就是 dance，
+    // 只看 wish 变化的话，点"跳舞"按钮（wish 不变）涂鸦会全程静止。
+    if (widget.autoPlay && !old.autoPlay) {
+      _controller.repeat();
+    } else if (!widget.autoPlay && old.autoPlay) {
+      _controller.stop();
+    } else if (old.wish != widget.wish && widget.autoPlay) {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -263,24 +272,21 @@ class _ConfettiPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final fade = t < 0.75 ? 1.0 : (1 - (t - 0.75) / 0.25); // 尾段淡出
+    final paint = Paint(); // 循环外复用，只换色
     for (final p in pieces) {
       // 抛物线：x = x0 + vx*t, y = vy*t + 0.5*g*t²（归一化坐标）
       final x = (p.x0 + p.vx * t) * size.width;
       final y = (p.vy * t + 0.9 * t * t) * size.height;
       final angle = p.spin + t * 9;
-      final rect = Rect.fromCenter(
-        center: Offset(x, y),
-        width: p.w,
-        height: p.h * (0.4 + 0.6 * (0.5 + 0.5 * math.sin(angle * 2))), // 翻转闪动感
-      );
-      final paint = Paint()
-        ..color = HSLColor.fromAHSL(fade, p.hue, 0.85, 0.6).toColor();
+      // 翻转闪动感
+      final h = p.h * (0.4 + 0.6 * (0.5 + 0.5 * math.sin(angle * 2)));
+      paint.color = HSLColor.fromAHSL(fade, p.hue, 0.85, 0.6).toColor();
       canvas.save();
       canvas.translate(x, y);
       canvas.rotate(angle);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          rect.shift(-Offset(x, y)),
+          Rect.fromCenter(center: Offset.zero, width: p.w, height: h),
           const Radius.circular(2),
         ),
         paint,
