@@ -163,10 +163,98 @@ class RealAiService {
     }
   }
 
-  // ---------------- 画作分析（多模态视觉，Task 3 实现真逻辑）----------------
+  // ---------------- 画作分析（多模态视觉）----------------
 
-  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes) =>
-      throw UnimplementedError();
+  /// 画作 PNG → (主体, 4 个推荐动作)。
+  ///
+  /// 与 ASR 同一个多模态模型（一套 Key）；HTTP 错误抛 [AiHttpException]，
+  /// 模型返回内容不合法返回 null（UI 落默认按钮）。
+  Future<ArtworkAnalysis?> analyzeArtwork(Uint8List pngBytes) async {
+    if (!keys.hasAsr) throw ApiKeyMissingError('画作分析');
+    final resp = await _client.post(
+      Uri.parse('${keys.doubaoBaseUrl}/chat/completions'),
+      headers: {
+        'Authorization': 'Bearer ${keys.doubaoApiKey}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': keys.doubaoAsrModel,
+        'messages': [
+          {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'text',
+                'text': '看这张儿童涂鸦。严格输出JSON（不要任何其他文字）：'
+                    '{"subject":"<画的是什么，中文2-4字>",'
+                    '"actions":[{"label":"<动作中文2-3字>","emoji":"<单个表情>",'
+                    '"anim":"dance|fly|sing|run","prompt":"<英文视频提示词，'
+                    '儿童友好、明快色彩、以画的主体为主语，不超过40词>"}]}。'
+                    'actions 恰好 4 个，必须贴合所画主体的习性（如金鱼→游泳，'
+                    '火箭→升空）；emoji 不要用 🎤；anim 是等待期动画类型：'
+                    '摇摆类选 dance、飘浮/上升类选 fly、节奏/声音类选 sing、'
+                    '移动类选 run。',
+              },
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:image/png;base64,${base64Encode(pngBytes)}',
+                },
+              },
+            ],
+          },
+        ],
+        'thinking': {'type': 'disabled'},
+      }),
+    ).timeout(const Duration(seconds: 20));
+    _throwIfNotOk(resp, '画作分析');
+    final content = jsonDecode(resp.body)['choices'][0]['message']['content'];
+    if (content is! String) return null;
+    return parseAnalysis(content);
+  }
+
+  /// 解析并校验模型输出；任何不合法 → null（降级不造假）。
+  static ArtworkAnalysis? parseAnalysis(String content) {
+    try {
+      final m = RegExp(r'\{[\s\S]*\}').firstMatch(content);
+      final j = jsonDecode(m!.group(0)!) as Map<String, dynamic>;
+      final subject = (j['subject'] as String?)?.trim();
+      if (subject == null || subject.isEmpty) return null;
+      final rawActions = j['actions'];
+      if (rawActions is! List || rawActions.isEmpty) return null;
+
+      final actions = <WishAction>[];
+      for (final e in rawActions.take(4)) {
+        if (e is! Map) continue;
+        final label = (e['label'] as String?)?.trim() ?? '';
+        var emoji = (e['emoji'] as String?)?.trim() ?? '';
+        final prompt = ((e['prompt'] as String?) ?? '')
+            .replaceAll(RegExp(r'[\r\n]+'), ' ')
+            .trim();
+        final anim = switch (e['anim'] as String?) {
+          'dance' => WishType.dance,
+          'fly' => WishType.fly,
+          'sing' => WishType.sing,
+          'run' => WishType.run,
+          _ => null,
+        };
+        // emoji 只保留短串：截掉模型可能输出的多余文字
+        if (emoji.length > 8) emoji = emoji.substring(0, 8);
+        if (label.isEmpty || prompt.isEmpty || anim == null) continue;
+        if (emoji.isEmpty || emoji.contains('🎤')) continue;
+        actions.add(WishAction(
+          label: label,
+          emoji: emoji,
+          prompt: prompt.length > 500 ? prompt.substring(0, 500) : prompt,
+          anim: anim,
+        ));
+      }
+      if (actions.length != 4) return null; // 恒 4 个，不足即整体失败
+      return ArtworkAnalysis(subject: subject, actions: actions);
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---------------- Seedream 线稿 ----------------
 
