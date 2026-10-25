@@ -9,7 +9,11 @@ class Stroke {
   final bool eraser; // 橡皮 = 用背景色画粗笔
   final List<Offset> points = <Offset>[];
 
-  void addPoint(Offset p) => points.add(p);
+  /// 高刷屏（120-240Hz）下指针事件极密，最小间距抽稀避免点列表无界膨胀。
+  void addPoint(Offset p) {
+    if (points.isNotEmpty && (p - points.last).distance < 1.0) return;
+    points.add(p);
+  }
 
   bool get isEmpty => points.isEmpty;
   int get pointCount => points.length;

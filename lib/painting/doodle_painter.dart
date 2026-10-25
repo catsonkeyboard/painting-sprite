@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'package:painting_sprite/models/stroke.dart';
+import 'package:painting_sprite/ui/kid_ui.dart';
 
 /// 把 [strokes] 画到白纸上的 CustomPainter。
+///
+/// 背景色统一取 [KidUi.canvasBackground]：橡皮是"用背景色画粗笔"，
+/// 显示与导出走同一底色，视觉一致。
 class DoodlePainter extends CustomPainter {
-  DoodlePainter(this.strokes, {this.background = const Color(0xFFFFFFFF)});
+  DoodlePainter(this.strokes, {this.background = KidUi.canvasBackground});
 
   final List<Stroke> strokes;
   final Color background;
